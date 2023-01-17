@@ -1,0 +1,1 @@
+# ailia-apps-safety-detection
