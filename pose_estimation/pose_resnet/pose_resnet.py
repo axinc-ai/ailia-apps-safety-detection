@@ -61,6 +61,11 @@ POSE_THRESHOLD = 0.4
 parser = get_base_parser(
     'Simple Baseline for Pose Estimation', IMAGE_PATH, SAVE_IMAGE_PATH,
 )
+parser.add_argument(
+    '--reverse',
+    action='store_true',
+    help='Reverse input image.'
+)
 args = update_parser(parser)
 
 
@@ -326,6 +331,8 @@ def recognize_from_video():
     frame_cnt = 0
     while(True):
         ret, frame = capture.read()
+        if args.reverse:
+            frame = frame[::-1,:,:].copy()
         if frame_cnt % 10 != 0:
             frame_cnt = frame_cnt + 1
             continue
