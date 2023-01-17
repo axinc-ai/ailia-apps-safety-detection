@@ -51,7 +51,7 @@ COCO_CATEGORY = [
 ]
 THRESHOLD = 0.4
 IOU = 0.45
-POSE_THRESHOLD = 0.1
+POSE_THRESHOLD = 0.4
 
 
 # ======================
@@ -156,6 +156,17 @@ def pose_estimation(detector, pose, img):
     return pose_detections
 
 
+def is_safety(detections):
+    threshold = POSE_THRESHOLD
+    if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].score > threshold and detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].score > threshold:
+        if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].y:
+            return False
+    if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold and detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold:
+        if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_RIGHT].y:
+            return False
+    return True
+
+
 def plot_results(detector, pose, img, category, pose_detections, logging=True):
     h, w = img.shape[0], img.shape[1]
     count = detector.get_object_count()
@@ -181,27 +192,6 @@ def plot_results(detector, pose, img, category, pose_detections, logging=True):
         if not (obj.category == 0):
             continue
         
-        if idx == 0:
-            safety = False
-        else:
-            safety = True
-
-        color = (0, 255, 0) # Safety
-        if not safety:
-            color = (0, 0, 255) # Not Safety
-        fontScale = w / 1024.0
-        cv2.rectangle(img, top_left, bottom_right, color, 4)
-
-        #cv2.putText(
-        #    img,
-        #    category[obj.category],
-        #    text_position,
-        #    cv2.FONT_HERSHEY_SIMPLEX,
-        #    fontScale,
-        #    color,
-        #    1
-        #)
-
         CATEGORY_PERSON = 0
         if obj.category != CATEGORY_PERSON:
             continue
@@ -211,8 +201,18 @@ def plot_results(detector, pose, img, category, pose_detections, logging=True):
             top_left, bottom_right, img, pose
         )
         detections = pose_detections[idx]
+
+        safety = is_safety(detections)
+
+        color = (0, 255, 0, 255) # Safety
+        if not safety:
+            color = (0, 0, 255, 255) # Not Safety
+        fontScale = w / 1024.0
+        cv2.rectangle(img, top_left, bottom_right, color, 4)
+
         cv2.rectangle(img, (px1, py1), (px2, py2), color, 1)
         display_result(img, detections)
+        
 
         # is fall
         text = "Safety"
@@ -308,8 +308,13 @@ def recognize_from_video():
         writer = None
     
     frame_shown = False
+    frame_cnt = 0
     while(True):
         ret, frame = capture.read()
+        if frame_cnt % 10 != 0:
+            frame_cnt = frame_cnt + 1
+            continue
+        frame_cnt = frame_cnt + 1
         if (cv2.waitKey(1) & 0xFF == ord('q')) or not ret:
             break
         if frame_shown and cv2.getWindowProperty('frame', cv2.WND_PROP_VISIBLE) == 0:
