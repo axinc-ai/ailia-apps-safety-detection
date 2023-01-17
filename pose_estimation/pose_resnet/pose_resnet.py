@@ -159,24 +159,35 @@ def pose_estimation(detector, pose, img):
 
 def is_safety(detections):
     threshold = POSE_THRESHOLD
+    theta = 0
+    status = ""
 
     # 膝がヒップよりも上にある
     if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].score > threshold and detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].score > threshold:
         if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].y:
-            return False
+            return False, "(Hip > Knee)"
     if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold and detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold:
         if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_RIGHT].y:
-            return False
+            return False, "(Hip > Knee)"
     
     # 頭が横にある
-    if detections.points[ailia.POSE_KEYPOINT_NOSE].score > threshold and detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].score:
-        theta = math.atan2(-(detections.points[ailia.POSE_KEYPOINT_NOSE].y - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].y),
-                            detections.points[ailia.POSE_KEYPOINT_NOSE].x - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].x)
+    if detections.points[ailia.POSE_KEYPOINT_NOSE].score > threshold and detections.points[ailia.POSE_KEYPOINT_BODY_CENTER].score:
+        theta = math.atan2(-(detections.points[ailia.POSE_KEYPOINT_NOSE].y - detections.points[ailia.POSE_KEYPOINT_BODY_CENTER].y),
+                            detections.points[ailia.POSE_KEYPOINT_NOSE].x - detections.points[ailia.POSE_KEYPOINT_BODY_CENTER].x)
         theta = 180 * theta / math.pi
+        status = "(Head Body angle " + str(int(theta)) + ")"
         if not (theta >= 30 and theta <= 180 - 30):
-            return False
+            return False, status
+    #else:
+    #    if detections.points[ailia.POSE_KEYPOINT_NOSE].score > threshold and detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].score:
+    #        theta = math.atan2(-(detections.points[ailia.POSE_KEYPOINT_NOSE].y - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].y),
+    #                            detections.points[ailia.POSE_KEYPOINT_NOSE].x - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].x)
+    #        theta = 180 * theta / math.pi
+    #        status = "(Head Shoulder angle " + str(int(theta)) + ")"
+    #        if not (theta >= 30 and theta <= 180 - 30):
+    #            return False, status
 
-    return True
+    return True, status
 
 
 def plot_results(detector, pose, img, category, pose_detections, logging=True):
@@ -187,15 +198,6 @@ def plot_results(detector, pose, img, category, pose_detections, logging=True):
 
     for idx in range(count):
         obj = detector.get_object(idx)
-        # print result
-        if logging:
-            logger.info(f'+ idx={idx}')
-            logger.info(f'  category={obj.category}[ {category[obj.category]} ]')
-            logger.info(f'  prob={obj.prob}')
-            logger.info(f'  x={obj.x}')
-            logger.info(f'  y={obj.y}')
-            logger.info(f'  w={obj.w}')
-            logger.info(f'  h={obj.h}')
         top_left = (int(w*obj.x), int(h*obj.y))
         bottom_right = (int(w*(obj.x+obj.w)), int(h*(obj.y+obj.h)))
         text_position = (int(w*obj.x)+4, int(h*(obj.y+obj.h)-8))
@@ -214,7 +216,7 @@ def plot_results(detector, pose, img, category, pose_detections, logging=True):
         )
         detections = pose_detections[idx]
 
-        safety = is_safety(detections)
+        safety, status = is_safety(detections)
 
         color = (0, 255, 0, 255) # Safety
         if not safety:
@@ -230,6 +232,7 @@ def plot_results(detector, pose, img, category, pose_detections, logging=True):
         text = "Safety"
         if not safety:
             text = "Not safety"
+        text = text + status
         cv2.putText(
             img,
             text,
