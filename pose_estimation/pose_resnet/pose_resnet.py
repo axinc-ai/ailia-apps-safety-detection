@@ -3,6 +3,7 @@ import time
 
 import numpy as np
 import cv2
+import math
 
 import ailia
 
@@ -158,12 +159,23 @@ def pose_estimation(detector, pose, img):
 
 def is_safety(detections):
     threshold = POSE_THRESHOLD
+
+    # 膝がヒップよりも上にある
     if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].score > threshold and detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].score > threshold:
         if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].y:
             return False
     if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold and detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold:
         if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_RIGHT].y:
             return False
+    
+    # 頭が横にある
+    if detections.points[ailia.POSE_KEYPOINT_NOSE].score > threshold and detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].score:
+        theta = math.atan2(-(detections.points[ailia.POSE_KEYPOINT_NOSE].y - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].y),
+                            detections.points[ailia.POSE_KEYPOINT_NOSE].x - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].x)
+        theta = 180 * theta / math.pi
+        if not (theta >= 30 and theta <= 180 - 30):
+            return False
+
     return True
 
 
