@@ -24,8 +24,6 @@ python3 ailia-apps-safety-detection.py
 
 2. Push "Input video" button to select input video
 
-Click on the screen to draw two lines.
-
 3. Push "Run" button to execute the app
 
 ![Run app](./tutorial/run.png)
