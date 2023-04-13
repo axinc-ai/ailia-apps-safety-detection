@@ -66,6 +66,31 @@ parser.add_argument(
     action='store_true',
     help='Reverse input image.'
 )
+parser.add_argument(
+    '--model_type',
+    default=None, type=str,
+    help='Model type.'
+)
+parser.add_argument(
+    '--category_fallen',
+    action='store_true',
+    help='Detect fallen.'
+)
+parser.add_argument(
+    '--category_sitting',
+    action='store_true',
+    help='Detect sitting.'
+)
+parser.add_argument(
+    '-th', '--detection_threshold',
+    default=THRESHOLD, type=float,
+    help='The detection threshold for yolo. (default: '+str(THRESHOLD)+')'
+)
+parser.add_argument(
+    '-pth', '--pose_threshold',
+    default=POSE_THRESHOLD, type=float,
+    help='The pose threshold for yolo. (default: '+str(POSE_THRESHOLD)+')'
+)
 args = update_parser(parser)
 
 
@@ -79,7 +104,7 @@ def hsv_to_rgb(h, s, v):
 
 
 def line(input_img, person, point1, point2):
-    threshold = POSE_THRESHOLD
+    threshold = args.pose_threshold
     if person.points[point1].score > threshold and\
        person.points[point2].score > threshold:
         color = hsv_to_rgb(255*point1/ailia.POSE_KEYPOINT_CNT, 255, 255)
@@ -163,34 +188,36 @@ def pose_estimation(detector, pose, img):
 
 
 def is_safety(detections):
-    threshold = POSE_THRESHOLD
+    threshold = args.pose_threshold
     theta = 0
     status = ""
 
-    # 膝がヒップよりも上にある
-    if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].score > threshold and detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].score > threshold:
-        if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].y:
-            return False, "(Hip > Knee)"
-    if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold and detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold:
-        if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_RIGHT].y:
-            return False, "(Hip > Knee)"
-    
-    # 頭が横にある
-    if detections.points[ailia.POSE_KEYPOINT_NOSE].score > threshold and detections.points[ailia.POSE_KEYPOINT_BODY_CENTER].score:
-        theta = math.atan2(-(detections.points[ailia.POSE_KEYPOINT_NOSE].y - detections.points[ailia.POSE_KEYPOINT_BODY_CENTER].y),
-                            detections.points[ailia.POSE_KEYPOINT_NOSE].x - detections.points[ailia.POSE_KEYPOINT_BODY_CENTER].x)
-        theta = 180 * theta / math.pi
-        status = "(Head Body angle " + str(int(theta)) + ")"
-        if not (theta >= 30 and theta <= 180 - 30):
-            return False, status
-    #else:
-    #    if detections.points[ailia.POSE_KEYPOINT_NOSE].score > threshold and detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].score:
-    #        theta = math.atan2(-(detections.points[ailia.POSE_KEYPOINT_NOSE].y - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].y),
-    #                            detections.points[ailia.POSE_KEYPOINT_NOSE].x - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].x)
-    #        theta = 180 * theta / math.pi
-    #        status = "(Head Shoulder angle " + str(int(theta)) + ")"
-    #        if not (theta >= 30 and theta <= 180 - 30):
-    #            return False, status
+    if args.category_sitting:
+        # 膝がヒップよりも上にある
+        if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].score > threshold and detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].score > threshold:
+            if detections.points[ailia.POSE_KEYPOINT_HIP_LEFT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_LEFT].y:
+                return False, "(Hip > Knee)"
+        if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold and detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].score > threshold:
+            if detections.points[ailia.POSE_KEYPOINT_HIP_RIGHT].y > detections.points[ailia.POSE_KEYPOINT_KNEE_RIGHT].y:
+                return False, "(Hip > Knee)"
+
+    if args.category_fallen:
+        # 頭が横にある
+        if detections.points[ailia.POSE_KEYPOINT_NOSE].score > threshold and detections.points[ailia.POSE_KEYPOINT_BODY_CENTER].score:
+            theta = math.atan2(-(detections.points[ailia.POSE_KEYPOINT_NOSE].y - detections.points[ailia.POSE_KEYPOINT_BODY_CENTER].y),
+                                detections.points[ailia.POSE_KEYPOINT_NOSE].x - detections.points[ailia.POSE_KEYPOINT_BODY_CENTER].x)
+            theta = 180 * theta / math.pi
+            status = "(Head Body angle " + str(int(theta)) + ")"
+            if not (theta >= 30 and theta <= 180 - 30):
+                return False, status
+        #else:
+        #    if detections.points[ailia.POSE_KEYPOINT_NOSE].score > threshold and detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].score:
+        #        theta = math.atan2(-(detections.points[ailia.POSE_KEYPOINT_NOSE].y - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].y),
+        #                            detections.points[ailia.POSE_KEYPOINT_NOSE].x - detections.points[ailia.POSE_KEYPOINT_SHOULDER_CENTER].x)
+        #        theta = 180 * theta / math.pi
+        #        status = "(Head Shoulder angle " + str(int(theta)) + ")"
+        #        if not (theta >= 30 and theta <= 180 - 30):
+        #            return False, status
 
     return True, status
 
@@ -278,7 +305,7 @@ def recognize_from_image():
 
         # inference
         logger.info('Start inference...')
-        detector.compute(img, THRESHOLD, IOU)
+        detector.compute(img, args.detection_threshold, IOU)
 
         # pose estimation
         if args.benchmark:
@@ -343,7 +370,7 @@ def recognize_from_video():
             break
 
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2BGRA)
-        detector.compute(img, THRESHOLD, IOU)
+        detector.compute(img, args.detection_threshold, IOU)
         pose_detections = pose_estimation(detector, pose, img)
         res_img = plot_results(detector, pose, frame, COCO_CATEGORY, pose_detections, False)
         cv2.imshow('frame', res_img)
