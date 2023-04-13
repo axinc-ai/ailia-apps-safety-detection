@@ -1,6 +1,36 @@
-# ailia-apps-safety-detection
+# ailia APPS Safety Detection
 
-## Architecture
+Detects people who are lying down or sitting down.
+
+# Functions
+
+- Detect lying down and sitting down
+
+# Requirements
+
+- Windows, macOS, Linux
+- Python 3.7 and later
+- ailia SDK 1.2.13 and later
+
+# Basic Usage
+
+1. Put this command to open GUI.
+
+```
+python3 ailia-apps-safety-detection.py
+```
+
+![Open GUI](./tutorial/open.png)
+
+2. Push "Input video" button to select input video
+
+Click on the screen to draw two lines.
+
+3. Push "Run" button to execute the app
+
+![Run app](./tutorial/run.png)
+
+# Architecture
 
 ```mermaid
 classDiagram
@@ -19,4 +49,8 @@ classDiagram
 `onnx` : yolox_s, poseresnet
 `Backend` : CPU, GPU
 ```
+
+# Test video
+
+TBD
 
